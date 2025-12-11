@@ -1,0 +1,28 @@
+<launch>
+  <!-- 底盘 CAN 节点：名字改成 yhs_can_control_odom_test，避免和别处重名冲突 -->
+  <node pkg="yhs_can_control"
+        type="yhs_can_control_node"
+        name="yhs_can_control_odom_test"
+        output="screen" />
+
+  <!-- 轮速里程节点：订阅 /odo_fb，发布 /odom -->
+  <node pkg="yhs_can_control"
+        type="yhs_odom_node.py"
+        name="yhs_wheel_odom_node"
+        output="screen">
+
+    <!-- 输入累计里程话题 -->
+    <param name="input_topic" value="/odo_fb" />
+
+    <!-- 输出 odometry 话题 -->
+    <param name="odom_topic" value="/odom" />
+
+    <!-- TF 坐标系：简单 odom/base_link，用来本地测试 -->
+    <param name="odom_frame" value="odom" />
+    <param name="base_frame" value="base_link" />
+
+    <!-- 测试时可以打开 TF -->
+    <param name="publish_tf" value="true" />
+  </node>
+</launch>
+

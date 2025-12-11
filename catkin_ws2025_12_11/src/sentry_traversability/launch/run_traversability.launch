@@ -1,0 +1,53 @@
+<launch>
+  <node pkg="sentry_traversability"
+        type="pcd_traversability"
+        name="pcd_traversability"
+        output="screen">
+
+    <param name="file_directory" value="$(find fast_lio)/PCD" />
+    <param name="file_name"      value="scans" />
+
+    <param name="vaf_radius"         value="0.5" />
+    <param name="max_slope_deg"      value="20.0" />
+    <param name="relaxation_factor"  value="0.15" />
+    <param name="z_max_threshold"    value="1.0" />
+
+    <param name="map_resolution" value="0.05" />
+    <param name="map_topic_name" value="traversability_map" />
+    <param name="frame_id"       value="2d_map" />
+
+    <!-- 新增：可通行 / 不可通行点云话题名称 -->
+    <param name="traversable_cloud_topic"     value="traversable_points" />
+    <param name="non_traversable_cloud_topic" value="non_traversable_points" />
+
+    <!-- 体素降采样分辨率 -->
+    <param name="voxel_leaf_size" value="0.025" />
+
+    <!-- 新增：雷达向下安装 30°，点云向上旋转 30° 纠正 -->
+    <param name="sensor_pitch_deg" value="30.0" />
+
+    <!-- 新增：VAF 之前的高度预滤波，旋转后 z > 1.0 的点全部剔除 -->
+    <param name="pre_filter_z_max" value="1.0" />
+
+  </node>
+
+  <!-- （可选）自动把两朵点云存成 PCD 方便离线看 -->
+  <!-- 需要有 pcl_ros 包 -->
+
+  <!-- 保存可通行点云 -->
+  <!--
+  <node pkg="pcl_ros" type="pointcloud_to_pcd" name="save_traversable_pcd" output="screen">
+    <remap from="cloud" to="traversable_points" />
+    <param name="prefix" value="$(find fast_lio)/PCD/traversable_" />
+  </node>
+
+  <node pkg="pcl_ros" type="pointcloud_to_pcd" name="save_nontraversable_pcd" output="screen">
+    <remap from="cloud" to="non_traversable_points" />
+    <param name="prefix" value="$(find fast_lio)/PCD/nontraversable_" />
+  </node>
+  -->
+
+</launch>
+
+
+

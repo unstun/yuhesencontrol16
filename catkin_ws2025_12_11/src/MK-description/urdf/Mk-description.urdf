@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<robot name="Mk-description">
+  
+  <link name="base_footprint_mid"/>
+
+  <joint name="base_joint" type="fixed">
+    <parent link="base_footprint_mid"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0.25" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0.003931 -0.0011622 -0.042486" rpy="0 0 0" />
+      <mass value="68.825" />
+      <inertia ixx="0.5143" ixy="-4.0046E-07" ixz="0.0029585" iyy="1.9652" iyz="2.8416E-06" izz="1.8922" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://mk_description/meshes/base_link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://mk_description/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="radar_Link">
+    <inertial>
+      <origin xyz="-0.00022593 -1.079E-07 -0.010581" rpy="0 0 0" />
+      <mass value="0.12656" />
+      <inertia ixx="3.6503E-05" ixy="1.6913E-10" ixz="-3.0481E-07" iyy="3.9717E-05" iyz="9.7579E-12" izz="5.8189E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://mk_description/meshes/radar_Link.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://mk_description/meshes/radar_Link.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="radar_joint" type="fixed">
+    <origin xyz="0.37089 0 0.48567" rpy="0 0.5236 0" />
+    <parent link="base_link" />
+    <child link="radar_Link" />
+    <axis xyz="0 0 0" />
+  </joint>
+
+</robot>

@@ -1,0 +1,124 @@
+<launch>
+  <!-- ========= 一些可调参数 ========= -->
+  <!-- 2D 地图坐标系，在 sentry_localize_urdf_traversability.launch 里是 2d_map -->
+  <arg name="global_frame"      default="2d_map" />
+  <!-- 机器人 2D 坐标系，一般是 base_footprint 或 base_link -->
+  <arg name="base_frame"        default="base_footprint" />
+  <!-- map_server 发布的 2D 地图话题名：prior_map -->
+  <arg name="map_topic"         default="prior_map" />
+  <!-- 车身里程计话题名，你之前用的是 Odometry -->
+  <arg name="odom_topic"        default="Odometry" />
+  <!-- move_base 输出的速度话题，后面会被 velocity_smoother_ema 接过去 -->
+  <arg name="cmd_vel_topic"     default="/raw_cmd_vel" />
+  <!-- 是否仿真时间，真车跑就设 false，回放 bag 就 true -->
+  <arg name="use_sim_time"      default="false" />
+
+  <param name="use_sim_time" value="$(arg use_sim_time)" />
+
+  <!-- ================== 1. move_base + RMP 导航核心节点 ================== -->
+  <node pkg="move_base" type="move_base"
+        name="move_base_rmp"
+        output="screen" clear_params="true">
+
+    <!-- 1.1 话题重映射：让 move_base 和你现有系统对上号 -->
+    <!-- costmap 的 static_map layer 默认订阅 /map，这里把它重定向到 prior_map -->
+    <remap from="map"  to="$(arg map_topic)" />
+    <!-- move_base 默认看 /odom，这里重定向到你车上的 /Odometry -->
+    <remap from="odom" to="$(arg odom_topic)" />
+    <!-- move_base 默认发布 cmd_vel，这里改成 /raw_cmd_vel，给速度平滑器用 -->
+    <remap from="cmd_vel" to="$(arg cmd_vel_topic)" />
+
+    <!-- 1.2 显式指定全局/局部 costmap 的坐标系 -->
+    <param name="global_costmap/global_frame"      value="$(arg global_frame)" />
+    <param name="global_costmap/robot_base_frame"  value="$(arg base_frame)" />
+    <param name="local_costmap/global_frame"       value="$(arg global_frame)" />
+    <param name="local_costmap/robot_base_frame"   value="$(arg base_frame)" />
+
+    <!-- 1.3 代价地图参数：用 sentry_nav 自己这套配置 -->
+    <rosparam file="$(find sentry_nav)/param/costmap_common_params.yaml"
+              command="load" ns="global_costmap" />
+    <rosparam file="$(find sentry_nav)/param/costmap_common_params.yaml"
+              command="load" ns="local_costmap" />
+    <rosparam file="$(find sentry_nav)/param/global_costmap_params.yaml"
+              command="load" />
+    <rosparam file="$(find sentry_nav)/param/local_costmap_params.yaml"
+              command="load" />
+    <!-- 用这个文件覆盖部分局部代价地图参数（如果你需要） -->
+
+    <rosparam file="$(find sentry_nav)/param/local_costmap_use_static.yaml"
+              command="load" />
+
+
+    <!-- ================== 2. 已去掉 sim_env 的全局规划配置 ================== -->
+    <!-- 原来这里有 sim_env/config/planner/common_planner_params.yaml 和 graph_planner_params.yaml
+         现在不用 GraphPlanner，而是直接用 hybrid_astar_planner 插件，所以删掉 -->
+
+    <!-- ================== 3. MPC 局部控制器（TU Dortmund carlike） ================== -->
+    <!-- 加载 TU Dortmund carlike 的 MPC 参数 -->
+    <rosparam file="$(find mpc_local_planner_examples)/cfg/carlike/mpc_local_planner_params.yaml"
+              command="load" />
+
+    <!-- 局部规划器一定要是 MpcLocalPlannerROS -->
+    <param name="base_local_planner" value="mpc_local_planner/MpcLocalPlannerROS" />
+
+    <!-- 控制频率等（如需可放开） -->
+    <!-- <param name="controller_frequency" value="10.0" /> -->
+    <!-- <param name="controller_patience"  value="15.0" /> -->
+    <!-- <param name="clearing_rotation_allowed" value="false" /> -->
+
+    <!-- 是否发布 OCP 详细结果（一般关掉） -->
+    <param name="MpcLocalPlannerROS/controller/publish_ocp_results" value="false" />
+
+    <!-- ================== 4. move_base 通用参数 ================== -->
+    <!-- 这一份主要是 planner_frequency / recovery 等通用参数，可以保留 -->
+    <rosparam file="$(find sim_env)/config/move_base_params.yaml"
+              command="load" />
+
+    <!-- ================== 5. 告诉 move_base 用哪个全局规划插件 ================== -->
+    <!-- ★★★ 全局规划：直接使用 Hybrid A* 插件 ★★★ -->
+    <param name="base_global_planner" value="hybrid_astar_planner/HybridAStarPlanner" />
+
+    <!-- 有的 hybrid_astar_planner 会读这个参数（如果你源码里有，就保留，没有也无所谓） -->
+    <param name="use_hybrid_astar" value="true" />
+
+    <!-- 注意：cmd_vel 还是会交给 MPC 局部规划器去算，上面已经把 cmd_vel remap 成 /raw_cmd_vel 了 -->
+  </node>
+
+  <!-- ================== 6. TF 和速度平滑器 ================== -->
+
+  <!-- 如果在其他 launch 里已经起过 trans_tf_2d，这里就不要再起 -->
+  <!--
+  <node pkg="sentry_nav" type="trans_tf_2d" name="trans_tf_2d" output="screen" />
+  -->
+
+  <!-- 速度平滑器：订阅 /raw_cmd_vel，发布 /cmd_vel，最后由 sentry_kinematics_bridge 订阅 -->
+  <include file="$(find velocity_smoother_ema)/launch/velocity_smoother_ema.launch" />
+
+  <!-- ================== 8. 轨迹 & 速度/转角可视化 ================== -->
+  <node pkg="sentry_nav" type="live_trajectory_plotter.py"
+        name="live_plotter" output="screen">
+
+    <!-- 1) 三条轨迹对比 -->
+    <!-- Hybrid A* 全局规划轨迹（话题名按你的插件实际为准） -->
+    <param name="global_plan_topic" value="/move_base_rmp/HybridAStarPlanner/plan" />
+    <!-- MPC 局部规划器发布的 local_plan（mpc_local_planner 默认就是这个话题） -->
+    <param name="mpc_plan_topic"    value="/move_base_rmp/MpcLocalPlannerROS/local_plan" />
+
+    <!-- 2) 速度 & 转角对比 -->
+    <!-- 实际速度/角速度（来自 FAST-LIO /Odometry） -->
+    <param name="odom_topic"        value="$(arg odom_topic)" />
+    <!-- 规定速度/转角：可以选 /cmd_vel 或 /raw_cmd_vel，看你想对比哪一级 -->
+    <param name="cmd_topic"         value="/cmd_vel" />
+
+    <!-- 3) 坐标系 & 车辆参数 -->
+    <param name="target_frame"      value="$(arg global_frame)" />
+    <param name="source_frame"      value="$(arg base_frame)" />
+    <!-- 车辆轴距，用于由 yaw_rate 近似计算实际转角 -->
+    <param name="wheelbase"         value="0.6" />
+
+    <!-- 4) 保存目录（不写则默认 ~/trajectory_data） -->
+    <!-- <param name="save_dir"      value="$(env HOME)/trajectory_data" /> -->
+  </node>
+
+</launch>
+

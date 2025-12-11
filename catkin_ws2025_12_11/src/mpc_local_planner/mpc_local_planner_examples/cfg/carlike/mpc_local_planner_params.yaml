@@ -1,0 +1,104 @@
+MpcLocalPlannerROS:
+
+  odom_topic: odom
+    
+   ## Robot settings
+  robot:
+    type: "simple_car"
+    simple_car:
+      wheelbase: 0.6
+      front_wheel_driving: False
+      max_vel_x: 0.5
+      max_vel_x_backwards: 0.3
+      max_steering_angle: 0.38
+      acc_lim_x: 0.3 # deactive bounds with zero
+      dec_lim_x: 0.3 # deactive bounds with zero
+      max_steering_rate: 0.3 # deactive bounds with zero
+
+  ## Footprint model for collision avoidance
+  footprint_model:
+    type: "polygon"  # 改为多边形，匹配机器人的长/宽尺寸
+    vertices: [  # 多边形顶点（机器人基座标系，原点为中心）
+      [-0.162, 0.37],  # 前右（长度0.7m→半长0.35m；宽度0.716m→半宽0.358m）
+      [-0.162, -0.37],   # 前左
+      [0.762,  -0.37],  # 后左
+      [0.762,  0.37]  # 后右
+    ]  # 注：若机器人前部有突出结构，可调整前顶点（如前部突出0.05m，则前顶点改为[0.4, ±0.358]）
+    is_footprint_dynamic: False
+
+
+  ## Collision avoidance
+  collision_avoidance:
+    min_obstacle_dist: 0.2  # 原0.27→改为0.4m（覆盖机器人最大半宽0.358m，留0.042m余量）
+    enable_dynamic_obstacles: False  # 若机器人需避动态障碍，可改为True
+    force_inclusion_dist: 0.5  # 原0.5→改为0.6m（覆盖最小避障距离+小余量）
+    cutoff_dist: 2  # 原2.5→改为3.0m（适配更大的机器人尺寸，提前感知远处障碍）
+    include_costmap_obstacles: True
+    costmap_obstacles_behind_robot_dist: 1.0  # 保持不变（覆盖机器人长度0.7m）
+    collision_check_no_poses: 4  # 原5→改为8（更大的机器人需检查更多轨迹点）
+    
+
+  ## Planning grid 
+  grid:
+    type: "fd_grid"
+    grid_size_ref: 10
+    dt_ref: 0.2
+    xf_fixed: [True, True, True]
+    warm_start: True
+    collocation_method: "forward_differences"
+    cost_integration_method: "left_sum"
+    variable_grid:
+      enable: True  
+      min_dt: 0.0;
+      max_dt: 10.0;
+      grid_adaptation:
+        enable: True
+        dt_hyst_ratio: 0.1
+        min_grid_size: 2
+        max_grid_size: 20
+
+  ## Planning options
+  planning:
+    objective:
+      type: "minimum_time" # minimum_time requires grid/variable_grid/enable=True and grid/xf_fixed set properly
+    terminal_cost:
+      type: "none"
+    terminal_constraint:
+      type: "none"
+
+  ## Controller options
+  controller:
+    outer_ocp_iterations: 1
+    xy_goal_tolerance: 0.1
+    yaw_goal_tolerance: 1.5
+    global_plan_overwrite_orientation: True
+    global_plan_prune_distance: 1.0
+    allow_init_with_backward_motion: True
+    max_global_plan_lookahead_dist: 1.5 
+    force_reinit_new_goal_dist: 1.0
+    force_reinit_new_goal_angular: 1.57
+    prefer_x_feedback: True
+    publish_ocp_results: True
+    
+  ## Solver settings
+  solver:
+    type: "ipopt"
+    ipopt:
+      iterations: 20
+      max_cpu_time: -1.0
+      ipopt_numeric_options:
+        tol: 1e-4
+      ipopt_string_options:
+        linear_solver: "mumps" 
+        hessian_approximation: "limited-memory" # exact/limited-memory, WARNING 'exact' does currently not work well with the carlike model
+    lsq_lm:
+      iterations: 10
+      weight_init_eq: 2
+      weight_init_ineq: 2
+      weight_init_bounds: 2
+      weight_adapt_factor_eq: 1.5
+      weight_adapt_factor_ineq: 1.5
+      weight_adapt_factor_bounds: 1.5
+      weight_adapt_max_eq: 500
+      weight_adapt_max_ineq: 500
+      weight_adapt_max_bounds: 500

@@ -1,0 +1,48 @@
+<launch>
+  <!-- Livox AVIA / MID360 定位用 launch -->
+
+  <arg name="rviz" default="true" />
+  <arg name="use_sim_time" default="true"/>
+  <!-- 3D PCD 地图 -->
+  <arg name="map" default="$(find fast_lio)/PCD/scans.pcd" />
+
+  <!-- 1) 全局定位：global_localization + transform_fusion -->
+  <node pkg="fast_lio_localization" type="global_localization.py"
+        name="global_localization" output="screen" />
+
+  <node pkg="fast_lio_localization" type="transform_fusion.py"
+        name="transform_fusion" output="screen" />
+
+  <!-- 2) 3D 全局地图（点云）: /map (PointCloud2) -->
+  <node pkg="pcl_ros" type="pcd_to_pointcloud" name="map_publishe" output="screen"
+        args="$(arg map) 5 _frame_id:=map cloud_pcd:=map" />
+
+  <!-- 3) 2D 地图（占据栅格），话题重映射为 prior_map，供 move_base 用 -->
+  <node name="map_server" pkg="map_server" type="map_server"
+        args="$(find fast_lio)/PCD/scans.yaml">
+    <!-- 这里可以直接用 map，当纯定位时不再区分 2d_map -->
+    <param name="frame_id" value="map"/>
+    <remap from="/map" to="prior_map"/>
+  </node>
+
+  <!-- 4) URDF 模型：直接照你建图的 sentry_build_map_urdf.launch 把这两行搬过来就行 -->
+  <node name="joint_state_publisher" pkg="joint_state_publisher"
+        type="joint_state_publisher" />
+
+  <node name="robot_state_publisher" pkg="robot_state_publisher"
+        type="robot_state_publisher" output="screen">
+    <!-- 如果你原来是用 xacro，就把下面这一行换成你原来的那一行 -->
+    <param name="robot_description"
+           textfile="$(find mk_description)/urdf/Mk-description.urdf"/>
+  </node>
+
+  <!-- 5) RViz -->
+  <group if="$(arg rviz)">
+    <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz"
+          args="-d $(find fast_lio_localization)/rviz_cfg/localization.rviz" />
+  </group>
+
+</launch>
+
+
+

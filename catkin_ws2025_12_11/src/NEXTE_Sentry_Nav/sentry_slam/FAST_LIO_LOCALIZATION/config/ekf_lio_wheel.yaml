@@ -1,0 +1,62 @@
+# 运行频率
+frequency: 50.0
+sensor_timeout: 0.1
+two_d_mode: true          # 只滤 x,y,yaw
+
+transform_time_offset: 0.0
+transform_timeout: 0.0
+print_diagnostics: true
+debug: false
+
+# frame 设置：
+map_frame: map            # 只是名字，不一定用到
+odom_frame: camera_init   # 把 camera_init 当作“里程系”
+world_frame: camera_init  # world_frame 选择 odom_frame -> 不发布 map->odom，那条给 LIO/ICP 管
+
+base_link_frame: base_footprint_3d  # 机器人基准坐标系
+publish_tf: true                    # 让 EKF 发布 camera_init -> base_footprint_3d
+
+# ============== 传感器 0：FAST-LIO /Odometry =================
+# /Odometry:
+#   header.frame_id = "camera_init"
+#   child_frame_id  = "body"
+odom0: /Odometry
+
+# 对应：
+# [x, y, z,
+#  roll, pitch, yaw,
+#  vx, vy, vz,
+#  vroll, vpitch, vyaw,
+#  ax, ay, az]
+# 我们只用 2D 位姿 (x,y,yaw)
+odom0_config: [true,  true,  false,
+               false, false, true,
+               false, false, false,
+               false, false, false,
+               false, false, false]
+
+odom0_differential: false
+odom0_relative:     false
+odom0_queue_size:   10
+odom0_pose_rejection_threshold: 5.0
+odom0_twist_rejection_threshold: 5.0
+
+# ============== 传感器 1：轮速里程 /odom ======================
+# /odom:
+#   header.frame_id = "camera_init"
+#   child_frame_id  = "base_footprint_3d"
+odom1: /odom
+
+# 只用速度：vx 和 vyaw
+odom1_config: [false, false, false,
+               false, false, false,
+               true,  false, false,
+               false, false, true,
+               false, false, false]
+
+odom1_differential: false
+odom1_relative:     false
+odom1_queue_size:   50
+odom1_pose_rejection_threshold: 5.0
+odom1_twist_rejection_threshold: 5.0
+

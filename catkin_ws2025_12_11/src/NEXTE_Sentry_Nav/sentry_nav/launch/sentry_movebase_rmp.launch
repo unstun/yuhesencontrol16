@@ -1,0 +1,93 @@
+<launch>
+  <!-- ========= 一些可调参数（先不用改，知道大概意思就行） ========= -->
+  <!-- 2D 地图坐标系，在 sentry_localize_urdf_traversability.launch 里是 2d_map -->
+  <arg name="global_frame"      default="2d_map" />
+  <!-- 机器人 2D 座标系，在 trans_tf_2d 里是 body_2d -->
+  <arg name="base_frame"        default="base_footprint" />
+  <!-- map_server 发布的 2D 地图话题名：prior_map -->
+  <arg name="map_topic"         default="prior_map" />
+  <!-- 车身里程计话题名，你之前用的是 Odometry -->
+  <arg name="odom_topic"        default="Odometry" />
+  <!-- move_base 输出的速度话题，后面会被 velocity_smoother_ema 接过去 -->
+  <arg name="cmd_vel_topic"     default="/raw_cmd_vel" />
+
+  <!--是否仿真时间，真车跑就设 false，回放 bag 就 true -->
+  <arg name="use_sim_time"      default="false" />
+
+  <param name="use_sim_time" value="$(arg use_sim_time)" />
+
+  <!-- ================== 1. move_base + RMP 导航核心节点 ================== -->
+  <node pkg="move_base" type="move_base"
+        name="move_base_rmp"
+        output="screen" clear_params="true">
+
+    <!-- 1.1 话题重映射：让 move_base 和你现有系统对上号 -->
+
+    <!-- costmap 的 static_map layer 默认订阅 /map，这里把它重定向到 prior_map -->
+    <remap from="map"  to="$(arg map_topic)" />
+    <!-- move_base 默认看 /odom，这里重定向到你车上的 /Odometry -->
+    <remap from="odom" to="$(arg odom_topic)" />
+    <!-- move_base 默认发布 /cmd_vel，这里改成 /raw_cmd_vel，给速度平滑器用 -->
+    <remap from="/cmd_vel" to="$(arg cmd_vel_topic)" />
+
+    <!-- 1.2 显式指定全局/局部 costmap 的坐标系（和你的参数文件保持一致） -->
+    <param name="global_costmap/global_frame"      value="$(arg global_frame)" />
+    <param name="global_costmap/robot_base_frame"  value="$(arg base_frame)" />
+    <param name="local_costmap/global_frame"       value="$(arg global_frame)" />
+    <param name="local_costmap/robot_base_frame"   value="$(arg base_frame)" />
+
+    <!-- 1.3 代价地图参数：直接复用你原来 sentry_nav 的那套配置 -->
+    <!-- 这部分主要是 2d_map / body_2d / /scan 的配置 -->
+    <rosparam file="$(find sentry_nav)/param/costmap_common_params.yaml"
+              command="load" ns="global_costmap" />
+    <rosparam file="$(find sentry_nav)/param/costmap_common_params.yaml"
+              command="load" ns="local_costmap" />
+    <rosparam file="$(find sentry_nav)/param/global_costmap_params.yaml"
+              command="load" />
+    <rosparam file="$(find sentry_nav)/param/local_costmap_params.yaml"
+              command="load" />
+
+    <!-- ================== 2. RMP 的全局规划（Hybrid A*） ================== -->
+    <!-- 这里用 ros_motion_planning/sim_env 里已经配好的 graph_planner -->
+    <rosparam file="$(find sim_env)/config/planner/common_planner_params.yaml"
+              command="load" />
+    <rosparam file="$(find sim_env)/config/planner/graph_planner_params.yaml"
+              command="load" />
+
+    <!-- ================== 3. PID 局部控制器参数 ================== -->
+    <!-- 先用 sim_env 自带的 PID 参数，需要的话后面可以拷一份到 sentry_nav 里单独调 -->
+<rosparam file="$(find sim_env)/config/controller/mpc_controller_params.yaml" command="load" />
+
+<param name="base_local_planner" value="mpc_controller/MPCController" />
+
+    <!-- ================== 4. move_base 通用参数 ================== -->
+    <!-- 包括 planner_frequency、controller_frequency、恢复行为等 -->
+    <rosparam file="$(find sim_env)/config/move_base_params.yaml"
+              command="load" />
+
+    <!-- ================== 5. 告诉 move_base 用哪两个插件 ================== -->
+
+    <!-- 全局规划：PathPlanner + Hybrid A*（在 graph_planner 里面再细配置） -->
+    <param name="base_global_planner"      value="path_planner/PathPlanner" />
+    <param name="PathPlanner/planner_name" value="hybrid_astar" />
+
+    <!-- 局部控制：PIDController -->
+
+
+  </node>
+
+  <!-- ================== 6. TF 和速度平滑器 ================== -->
+
+  <!-- 注意：如果你在 sentry_localize_urdf_traversability.launch 已经启动了 trans_tf_2d，
+       这里就不要再开，否则会有 “重复广播同名 TF” 的警告。你可以二选一。 -->
+  <!-- 先保留着，单独调试 move_base 时可以用它： -->
+  <!--
+  <node pkg="sentry_nav" type="trans_tf_2d" name="trans_tf_2d" output="screen" />
+  -->
+
+  <!-- 速度平滑器：订阅 /raw_cmd_vel，发布 /cmd_vel，最后由 sentry_kinematics_bridge 订阅 -->
+  <include file="$(find velocity_smoother_ema)/launch/velocity_smoother_ema.launch" />
+<node pkg="sentry_nav" type="live_trajectory_plotter.py" name="live_plotter" output="screen">
+      </node>
+</launch>
+

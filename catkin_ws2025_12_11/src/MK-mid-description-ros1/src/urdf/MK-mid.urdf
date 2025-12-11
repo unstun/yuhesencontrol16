@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<robot name="yhs_chassis_description">
+  <!-- 1. 先定义所有link（顺序：底盘→轮子→雷达） -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="-0.5 -0.37 -0.17" rpy="0 0 0"/>
+      <geometry>
+        <!-- 替换为你的底盘mesh路径，若没有mesh可改用<box>简化 -->
+        <mesh filename="package://yhs_chassis_description/meshes/MK-mid-BASE.STL"/>
+      </geometry>
+      <material name="base_material">
+        <color rgba="0.8 0.8 0.8 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <link name="front_left_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://yhs_chassis_description/meshes/MK-mid-WHEEL.STL"/>
+      </geometry>
+      <material name="wheel_material">
+        <color rgba="0.8 0.8 0.8 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <link name="front_right_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://yhs_chassis_description/meshes/MK-mid-WHEEL.STL"/>
+      </geometry>
+      <material name="wheel_material">
+        <color rgba="0.8 0.8 0.8 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <link name="mid360_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.05" length="0.05"/> <!-- 简化雷达模型 -->
+      </geometry>
+      <material name="lidar_material">
+        <color rgba="0.2 0.6 1.0 1"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- 2. 再定义所有关节（顺序与link对应） -->
+  <joint name="front_left_wheel_joint" type="continuous">
+    <axis xyz="0 0 1"/>
+    <parent link="base_link"/> <!-- 父link已提前定义 -->
+    <child link="front_left_wheel"/> <!-- 子link已提前定义 -->
+    <origin xyz="-0.5 0.22 -0.17" rpy="0 0 0"/>
+    <limit effort="100" velocity="100"/>
+    <joint_properties damping="0.0" friction="0.0"/>
+  </joint>
+
+  <joint name="front_right_wheel_joint" type="continuous">
+    <axis xyz="0 0 1"/>
+    <parent link="base_link"/>
+    <child link="front_right_wheel"/>
+    <origin xyz="-0.5 -0.36 -0.17" rpy="0 0 0"/>
+    <limit effort="100" velocity="100"/>
+    <joint_properties damping="0.0" friction="0.0"/>
+  </joint>
+
+  <joint name="mid360_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="mid360_link"/>
+    <origin xyz="0.34 0 0.75" rpy="0 0.5236 0"/> <!-- 雷达位置，可按需调整 -->
+  </joint>
+
+</robot> <!-- 根标签闭合，后面无任何内容 -->

@@ -1,0 +1,8 @@
+# velocity_smoother_ema/config 里面的 smoother.yaml（或类似文件）
+alpha_v: 1
+alpha_w: 1
+
+raw_cmd_topic: "raw_cmd_vel"   # 要跟 move_base 输出一致
+cmd_topic: "cmd_vel"           # 要给 kinematics_bridge / 底盘用
+cmd_rate: 30.0
+
